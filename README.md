@@ -1,2 +1,2 @@
-# arch_pkg
+# PKGBUILD
 Arch Linux PKGBUILD repo
