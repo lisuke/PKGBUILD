@@ -3,7 +3,7 @@ name: xx-net
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 18 * * *'
+    - cron: '6 6,18 * * *'
   push:
     paths:
       - ".github/workflows/xx-net.yml"
