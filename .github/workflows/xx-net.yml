@@ -43,7 +43,7 @@ jobs:
           echo ver=$ver >> $GITHUB_OUTPUT
           echo comment="xx-net upgrade: $ver-$sha" >> $GITHUB_OUTPUT
 
-      - id: calc
+      - id: modify
         if: steps.aur.outputs.comment != steps.github.outputs.comment
         run: |
           # 判断版本号
@@ -55,19 +55,8 @@ jobs:
             # 版本号相同: rel+1
             rel=$(echo ${{ steps.aur.outputs.rel }} + 1 | bc)
             echo rel=$rel >> $GITHUB_OUTPUT
-          fi
-
-      - id: check
-        if: steps.aur.outputs.ver != steps.github.outputs.ver || steps.aur.outputs.rel != steps.calc.outputs.rel
-        run: |
-          echo "P1 success."
-
-          if [ "${{ github.event_name }}" == "schedule" ]; then
-            echo "using schedule."
-          elif [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            echo "using workflow_dispatch."
-          elif [ "${{ github.event_name }}" == "push" ]; then
-            echo "using push."
+          else
+            exit 111
           fi
 
   P2:
