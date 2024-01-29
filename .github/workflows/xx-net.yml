@@ -43,7 +43,7 @@ jobs:
           echo ver=$ver >> $GITHUB_OUTPUT
           echo comment="xx-net upgrade: $ver-$sha" >> $GITHUB_OUTPUT
 
-      - id: modify
+      - id: calc
         if: steps.aur.outputs.comment != steps.github.outputs.comment
         run: |
           # 判断版本号
