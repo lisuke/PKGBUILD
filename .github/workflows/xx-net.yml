@@ -21,9 +21,9 @@ jobs:
       oldrel: ${{ steps.pre.outputs.aur_rel }}
       oldsums: ${{ steps.pre.outputs.aur_sums }}
       skip: ${{ steps.pre.outputs.skip }}
-      ver: ${{ steps.pre.outputs.source_ver }}
-      rel: ${{ steps.pre.outputs.source_rel }}
-      sums: ${{ steps.pre.outputs.source_sums }}
+      ver: ${{ steps.pre.outputs.ver }}
+      rel: ${{ steps.pre.outputs.rel }}
+      sums: ${{ steps.pre.outputs.sums }}
       comment: ${{ steps.pre.outputs.comment }}
     steps:
       - id: pre
@@ -40,29 +40,30 @@ jobs:
 
           echo "source"
           pkgver=$(curl -sSL https://api.github.com/repos/$GH_REPO/tags | jq ".[0].name")
-          source_sums=$(curl -sSL https://github.com/$GH_REPO/archive/$pkgver.tar.gz | md5sum | tr ' ' '\n' | head -1)
+          sums=$(curl -sSL https://github.com/$GH_REPO/archive/$pkgver.tar.gz | md5sum | tr ' ' '\n' | head -1)
 
-          echo source_ver=$pkgver >> $GITHUB_OUTPUT
-          echo source_sums=$source_sums >> $GITHUB_OUTPUT
+          echo ver=$pkgver >> $GITHUB_OUTPUT
+          echo sums=$sums >> $GITHUB_OUTPUT
 
           echo "calc"
-          if [[ $aur_sums != $source_sums ]]; then
+          if [[ $aur_sums != $sums ]]; then
             # 判断版本号
-            if [[ $aur_ver != $source_ver ]]; then
+            if [[ $aur_ver != $ver ]]; then
               echo "版本号不同: rel=1"
               rel=1
-              echo source_rel=$rel >> $GITHUB_OUTPUT
+              echo rel=$rel >> $GITHUB_OUTPUT
+              echo comment="upgrade $AUR_PKG-$pkgver-$rel" >> $GITHUB_OUTPUT
               echo skip=false >> $GITHUB_OUTPUT
             elif [ "${{ github.event_name }}" != "schedule" ]; then
               echo "版本号相同: rel+1"
               rel=$(echo $aur_rel + 1 | bc)
-              echo source_rel=$rel >> $GITHUB_OUTPUT
+              echo rel=$rel >> $GITHUB_OUTPUT
+              echo comment="upgrade $AUR_PKG-$pkgver-$rel" >> $GITHUB_OUTPUT
               echo skip=false >> $GITHUB_OUTPUT
             else
               echo "版本号相同，跳过"
               echo skip=true >> $GITHUB_OUTPUT
             fi
-            echo comment="upgrade $AUR_PKG-$pkgver-$source_rel" >> $GITHUB_OUTPUT
           fi
 
   P2:
