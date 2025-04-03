@@ -10,8 +10,8 @@ on:
       # - "xx-net/*"
 
 env:
-  AUR_PKG: "xx-net"
-  GH_REPO: "XX-net/XX-Net"
+  AUR_PKG: xx-net
+  GH_REPO: XX-net/XX-Net
 
 jobs:
   P1:
@@ -29,7 +29,7 @@ jobs:
       - id: pre
         run: |
           echo "aur"
-          PKGBUILD=$(curl -sSL https://aur.archlinux.org/cgit/aur.git/plain/PKGBUILD\?h\=$AUR_PKG )
+          PKGBUILD=$(curl -s https://aur.archlinux.org/cgit/aur.git/plain/PKGBUILD\?h\=$AUR_PKG )
           aur_ver=$(echo $PKGBUILD | grep '^pkgver=*' | sed -r 's|pkgver=(.*)$|\1|g')
           aur_rel=$(echo $PKGBUILD | grep '^pkgrel=*' | sed -r 's|pkgrel=(.*)$|\1|g')
           aur_sums=$(echo $PKGBUILD | sed -n '/.*sums=(/,/)/p' | sed -r "s/.*'([^']*)'.*/\1/g" | head -1)
