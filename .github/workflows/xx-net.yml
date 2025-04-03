@@ -46,9 +46,9 @@ jobs:
           echo source_sums=$source_sums >> $GITHUB_OUTPUT
 
           echo "calc"
-          if [[ ${{ aur_sums }} != ${{ source_sums }} ]]; then
+          if [[ $aur_sums != $source_sums ]]; then
             # 判断版本号
-            if [[ ${{ aur_ver }} != ${{ source_ver }} ]]; then
+            if [[ $aur_ver != $source_ver ]]; then
               echo "版本号不同: rel=1"
               rel=1
               echo source_rel=$rel >> $GITHUB_OUTPUT
@@ -62,7 +62,7 @@ jobs:
               echo "版本号相同，跳过"
               echo skip=true >> $GITHUB_OUTPUT
             fi
-            echo comment="upgrade $AUR_PKG--$source_rel >> $GITHUB_OUTPUT
+            echo comment="upgrade $AUR_PKG-$pkgver-$source_rel >> $GITHUB_OUTPUT
           fi
 
   P2:
