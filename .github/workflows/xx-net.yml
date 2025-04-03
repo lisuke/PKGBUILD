@@ -34,6 +34,9 @@ jobs:
           aur_ver=$(echo $PKGBUILD | grep '^pkgver=*' | sed -r 's|pkgver=(.*)$|\1|g')
           aur_rel=$(echo $PKGBUILD | grep '^pkgrel=*' | sed -r 's|pkgrel=(.*)$|\1|g')
           aur_sums=$(echo $PKGBUILD | sed -n '/.*sums=(/,/)/p' | sed -r "s/.*'([^']*)'.*/\1/g" | head -1)
+          echo aur_ver $aur_ver
+          echo aur_rel $aur_rel
+          echo aur_sums $aur_sums
 
           echo aur_ver=$aur_ver >> $GITHUB_OUTPUT
           echo aur_rel=$aur_rel >> $GITHUB_OUTPUT
