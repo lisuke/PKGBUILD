@@ -1,0 +1,112 @@
+name: xx-net
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "6 6,18 * * *"
+  push:
+    paths:
+      - ".github/workflows/xx-net.yml"
+      # - "xx-net/*"
+
+jobs:
+  P1:
+    runs-on: ubuntu-latest
+    outputs:
+      oldver: ${{ steps.aur.outputs.ver }}
+      oldrel: ${{ steps.aur.outputs.rel }}
+      oldcomment: ${{ steps.aur.outputs.comment }}
+      has_new: ${{ steps.calc.outputs.skip_p2 }}
+      newver: ${{ steps.github.outputs.ver }}
+      newrel: ${{ steps.calc.outputs.rel }}
+      newcomment: ${{ steps.github.outputs.comment }}
+    steps:
+      - id: aur
+        run: |
+          git clone https://aur.archlinux.org/xx-net.git aur
+          cd aur
+          ver=$(cat PKGBUILD | grep '^pkgver=*' | sed -r 's|pkgver=(.*)$|\1|g')
+          rel=$(cat PKGBUILD | grep '^pkgrel=*' | sed -r 's|pkgrel=(.*)$|\1|g')
+          comment=$(git log --pretty=format:"%h - %B" -n 1)
+
+          echo ver=$ver >> $GITHUB_OUTPUT
+          echo rel=$rel >> $GITHUB_OUTPUT
+          echo comment=$comment >> $GITHUB_OUTPUT
+
+      - id: github
+        run: |
+          git clone https://github.com/XX-net/XX-Net.git github
+          cd github
+          ver=$(git ls-remote --tags https://github.com/XX-net/XX-Net.git | awk '{print $2}' |  tail -n 1 | rev | cut -d/ -f1 | rev)
+          sha=$(curl -s "https://api.github.com/repos/XX-net/XX-net/commits/$ver" | jq -r .sha)
+
+          echo ver=$ver >> $GITHUB_OUTPUT
+          echo comment="xx-net upgrade: $ver-$sha" >> $GITHUB_OUTPUT
+
+      - id: calc
+        if: steps.aur.outputs.comment != steps.github.outputs.comment
+        run: |
+          # 判断版本号
+          if [[ ${{ steps.aur.outputs.ver }} != ${{ steps.github.outputs.ver }} ]]; then
+            echo "版本号不同: rel=1"
+            rel=1
+            echo rel=$rel >> $GITHUB_OUTPUT
+            echo skip_p2=false >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" != "schedule" ]; then
+            echo "版本号相同: rel+1"
+            rel=$(echo ${{ steps.aur.outputs.rel }} + 1 | bc)
+            echo rel=$rel >> $GITHUB_OUTPUT
+            echo skip_p2=false >> $GITHUB_OUTPUT
+          else
+            echo "版本号相同，跳过"
+            echo skip_p2=true >> $GITHUB_OUTPUT
+          fi
+
+  P2:
+    needs: [P1]
+    if: needs.P1.outputs.has_new == 'true'
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux
+    steps:
+      - name: init
+        run: |
+          pacman-key --init
+          pacman -Syu --noconfirm
+          pacman -S --noconfirm --needed base-devel devtools git jq pacman-contrib wget
+
+      # https://github.com/actions/checkout
+      - uses: actions/checkout@v4
+        with:
+          ref: "xx-net"
+          token: ${{ secrets.ACCESS_TOKEN }}
+
+      - name: update
+        run: |
+          git config --global user.name lisuke
+          git config --global user.email 1657787678@qq.com
+          git config --global --add safe.directory /__w/PKGBUILD/PKGBUILD
+          cd xx-net/
+
+          sed -i "s/pkgver=.*/pkgver=${{ needs.P1.outputs.newver }}/g" PKGBUILD
+          sed -i "s/pkgrel=.*/pkgrel=${{ needs.P1.outputs.newrel }}/g" PKGBUILD
+
+          useradd makepkg
+          chown -hR makepkg ./
+          su makepkg -c 'updpkgsums'
+          su makepkg -c 'makepkg --printsrcinfo'
+          su makepkg -c 'makepkg --printsrcinfo > .SRCINFO'
+          git add PKGBUILD .SRCINFO
+          git commit -m "${{ needs.P1.outputs.newcomment }}"
+          git push origin xx-net
+
+      - name: deploy-aur
+        uses: KSXGitHub/github-actions-deploy-aur@v2.4.1
+        with:
+          pkgname: xx-net
+          pkgbuild: xx-net/PKGBUILD
+          commit_username: lisuke
+          commit_email: 1657787678@qq.com
+          ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+          commit_message: "${{ needs.P1.outputs.newcomment }}"
+          ssh_keyscan_types: rsa,dsa,ecdsa,ed25519
