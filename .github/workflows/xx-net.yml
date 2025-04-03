@@ -28,7 +28,7 @@ jobs:
     steps:
       - id: pre
         run: |
-          echo "aur"
+          echo "aur $AUR_PKG"
           PKGBUILD=$(curl -s https://aur.archlinux.org/cgit/aur.git/plain/PKGBUILD\?h\=$AUR_PKG )
           aur_ver=$(echo $PKGBUILD | grep '^pkgver=*' | sed -r 's|pkgver=(.*)$|\1|g')
           aur_rel=$(echo $PKGBUILD | grep '^pkgrel=*' | sed -r 's|pkgrel=(.*)$|\1|g')
@@ -38,7 +38,7 @@ jobs:
           echo aur_rel=$aur_rel >> $GITHUB_OUTPUT
           echo aur_sums=$aur_sums >> $GITHUB_OUTPUT
 
-          echo "source"
+          echo "repo $GH_REPO"
           pkgver=$(curl -sSL https://api.github.com/repos/$GH_REPO/tags | jq ".[0].name")
           sums=$(curl -sSL https://github.com/$GH_REPO/archive/$pkgver.tar.gz | md5sum | tr ' ' '\n' | head -1)
 
