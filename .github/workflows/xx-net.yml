@@ -55,7 +55,7 @@ jobs:
               echo skip=false >> $GITHUB_OUTPUT
             elif [ "${{ github.event_name }}" != "schedule" ]; then
               echo "版本号相同: rel+1"
-              rel=$(echo ${{ aur_rel }} + 1 | bc)
+              rel=$(echo $aur_rel + 1 | bc)
               echo source_rel=$rel >> $GITHUB_OUTPUT
               echo skip=false >> $GITHUB_OUTPUT
             else
