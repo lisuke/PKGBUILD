@@ -48,6 +48,7 @@ jobs:
           echo "calc"
           if [[ $aur_sums != $sums ]]; then
             # 判断版本号
+            echo ver $aur_ver $ver
             if [[ $aur_ver != $ver ]]; then
               echo "版本号不同: rel=1"
               rel=1
