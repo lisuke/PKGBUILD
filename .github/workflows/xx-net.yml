@@ -48,7 +48,7 @@ jobs:
           echo "calc"
           if [[ $aur_sums != $sums ]]; then
             # 判断版本号
-            echo ver $aur_ver $ver
+            echo "ver $aur_ver $ver"
             if [[ $aur_ver != $ver ]]; then
               echo "版本号不同: rel=1"
               rel=1
@@ -57,7 +57,7 @@ jobs:
               echo skip=false >> $GITHUB_OUTPUT
             elif [ "${{ github.event_name }}" != "schedule" ]; then
               echo "版本号相同: rel+1"
-              rel=$(echo $aur_rel + 1 | bc)
+              rel=$(echo "$aur_rel + 1" | bc)
               echo rel=$rel >> $GITHUB_OUTPUT
               echo comment="upgrade $AUR_PKG-$pkgver-$rel" >> $GITHUB_OUTPUT
               echo skip=false >> $GITHUB_OUTPUT
