@@ -1,0 +1,136 @@
+name: qt-mpv-bg-wlr
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "6 6,18 * * *"
+  push:
+    paths:
+      - ".github/workflows/qt-mpv-bg-wlr.yml"
+      # - "qt-mpv-bg-wlr/*"
+
+env:
+  AUR_PKG: qt-mpv-bg-wlr
+  GH_REPO: lisuke/qt-mpv-bg-wlr
+
+jobs:
+  P1:
+    runs-on: ubuntu-latest
+    outputs:
+      oldver: ${{ steps.pre.outputs.aur_ver }}
+      oldrel: ${{ steps.pre.outputs.aur_rel }}
+      oldsums: ${{ steps.pre.outputs.aur_sums }}
+      skip: ${{ steps.pre.outputs.skip }}
+      ver: ${{ steps.pre.outputs.ver }}
+      rel: ${{ steps.pre.outputs.rel }}
+      sums: ${{ steps.pre.outputs.sums }}
+      comment: ${{ steps.pre.outputs.comment }}
+    steps:
+      - id: pre
+        run: |
+          echo "aur $AUR_PKG"
+          wget https://aur.archlinux.org/cgit/aur.git/plain/PKGBUILD\?h\=$AUR_PKG -O PKGBUILD
+          PKGBUILD=$(cat PKGBUILD)
+          cat PKGBUILD
+          aur_ver=$(cat PKGBUILD | grep '^pkgver=*' | sed -r 's|pkgver=(.*)$|\1|g')
+          aur_rel=$(cat PKGBUILD | grep '^pkgrel=*' | sed -r 's|pkgrel=(.*)$|\1|g')
+          aur_sums=$(cat PKGBUILD | sed -n '/.*sums=(/,/)/p' | sed -r "s/.*'([^']*)'.*/\1/g" | head -1)
+          echo aur_ver $aur_ver
+          echo aur_rel $aur_rel
+          echo aur_sums $aur_sums
+
+          echo aur_ver=$aur_ver >> $GITHUB_OUTPUT
+          echo aur_rel=$aur_rel >> $GITHUB_OUTPUT
+          echo aur_sums=$aur_sums >> $GITHUB_OUTPUT
+
+          echo "repo $GH_REPO"
+          pkgver=$(curl -sSL https://api.github.com/repos/$GH_REPO/tags | jq ".[0].name" | sed 's/\"//g')
+          sums=$(curl -sSL https://github.com/$GH_REPO/archive/$pkgver.tar.gz | md5sum | tr ' ' '\n' | head -1)
+          echo pkgver $pkgver
+          echo sums $sums
+          
+          echo ver=$pkgver >> $GITHUB_OUTPUT
+          echo sums=$sums >> $GITHUB_OUTPUT
+
+          echo "calc"
+          echo "${{ github.event_name }}"
+          # 判断版本号
+          echo "ver $aur_ver $pkgver"
+          if [[ $aur_ver == $pkgver ]]; then
+            if [[ $aur_sums != $sums ]]; then
+              echo "版本号相同，文件不同: rel=1"
+              rel=1
+              echo rel=$rel >> $GITHUB_OUTPUT
+              echo comment="upgrade $AUR_PKG-$pkgver-$rel" >> $GITHUB_OUTPUT
+              echo skip=false >> $GITHUB_OUTPUT
+            elif [ "${{ github.event_name }}" == "push" ] || [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+              echo "版本号相同: rel+1"
+              rel=$(echo "$aur_rel + 1" | bc)
+              echo rel=$rel >> $GITHUB_OUTPUT
+              echo comment="upgrade $AUR_PKG-$pkgver-$rel" >> $GITHUB_OUTPUT
+              echo skip=false >> $GITHUB_OUTPUT
+            elif [ "${{ github.event_name }}" == "schedule" ]; then
+              echo "schedule: 无变更，跳过"
+              echo skip=true >> $GITHUB_OUTPUT
+            fi
+          else
+              echo "版本号不同: rel=1"
+              rel=1
+              echo rel=$rel >> $GITHUB_OUTPUT
+              echo comment="upgrade $AUR_PKG-$pkgver-$rel" >> $GITHUB_OUTPUT
+              echo skip=false >> $GITHUB_OUTPUT
+          fi
+
+  P2:
+    needs: [P1]
+    if: needs.P1.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux
+    steps:
+      - name: init
+        run: |
+          pacman-key --init
+          pacman -Syu --noconfirm
+          pacman -S --noconfirm --needed base-devel devtools git jq pacman-contrib wget
+
+      # https://github.com/actions/checkout
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.AUR_PKG }}
+          token: ${{ secrets.ACCESS_TOKEN }}
+
+      - name: update
+        run: |
+          git config --global user.name lisuke
+          git config --global user.email 1657787678@qq.com
+          git config --global --add safe.directory /__w/PKGBUILD/PKGBUILD
+          cd $AUR_PKG/
+
+          sed -i "s/pkgver=.*/pkgver=${{ needs.P1.outputs.ver }}/g" PKGBUILD
+          sed -i "s/pkgrel=.*/pkgrel=${{ needs.P1.outputs.rel }}/g" PKGBUILD
+
+          useradd makepkg
+          chown -hR makepkg ./
+          su makepkg -c 'updpkgsums'
+          su makepkg -c 'makepkg --printsrcinfo'
+          su makepkg -c 'makepkg --printsrcinfo > .SRCINFO'
+          git add PKGBUILD .SRCINFO
+          
+          if [ "${{ github.event_name }}" == "push" ]; then
+            git commit -m "${{ needs.P1.outputs.comment }}" | echo skip_commit
+          elif [ "${{ github.event_name }}" == "schedule" ]; then
+            git commit -m "${{ needs.P1.outputs.comment }}"
+          fi
+          git push origin $AUR_PKG
+
+      - name: deploy-aur
+        uses: KSXGitHub/github-actions-deploy-aur@v2.4.1
+        with:
+          pkgname: ${{ env.AUR_PKG }}
+          pkgbuild: ${{ env.AUR_PKG }}/PKGBUILD
+          commit_username: lisuke
+          commit_email: 1657787678@qq.com
+          ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+          commit_message: "${{ needs.P1.outputs.comment }}"
+          ssh_keyscan_types: rsa,ecdsa,ed25519
